@@ -89,6 +89,9 @@ Add Microsoft Sentinel to the workspace: <br/>
 <img src="docs/images/sentinel.png" height="80%" width="80%" alt="Add Microsoft Sentinel"/>
 <br />
 <br />
+<img src="docs/images/sentinel2.png" height="80%" width="80%" alt="Add Microsoft Sentinel"/>
+<br />
+<br />
 
 
 <br />

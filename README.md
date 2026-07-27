@@ -84,22 +84,21 @@ Confirm the workspace overview (name, region): <br/>
 <br />
 
 Confirm 90-day retention setting: <br/>
-<img src="docs/images/sprint1-04-retention-90days.png" height="80%" width="80%" alt="Data retention 90 days"/>
+<img src="docs/images/datarention.png" height="80%" width="80%" alt="Data retention 90 days"/>
 <br />
 <br />
 
 Confirm tags applied: <br/>
-<img src="docs/images/sprint1-05-tags.png" height="80%" width="80%" alt="Tags applied"/>
+<img src="docs/images/4.png" height="80%" width="80%" alt="Tags applied"/>
 <br />
 <br />
 
 Add Microsoft Sentinel to the workspace: <br/>
-<img src="docs/images/sprint1-06-sentinel-create.png" height="80%" width="80%" alt="Add Microsoft Sentinel"/>
+<img src="docs/images/sentinel.png" height="80%" width="80%" alt="Add Microsoft Sentinel"/>
 <br />
 <br />
 
-Confirm Sentinel is active on the workspace: <br/>
-<img src="docs/images/sprint1-07-sentinel-overview.png" height="80%" width="80%" alt="Sentinel overview active"/>
+
 <br />
 <br />
 

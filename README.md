@@ -73,15 +73,7 @@ Search for and create the Log Analytics Workspace: <br/>
 <br />
 <br />
 
-Fill in workspace details (name, region, resource group): <br/>
-<img src="docs/images/sprint1-02-create-workspace-basics.png" height="80%" width="80%" alt="Create workspace basics tab"/>
-<br />
-<br />
 
-Confirm the workspace overview (name, region): <br/>
-<img src="docs/images/sprint1-03-workspace-overview.png" height="80%" width="80%" alt="Workspace overview"/>
-<br />
-<br />
 
 Confirm 90-day retention setting: <br/>
 <img src="docs/images/datarention.png" height="80%" width="80%" alt="Data retention 90 days"/>
@@ -103,7 +95,7 @@ Add Microsoft Sentinel to the workspace: <br/>
 <br />
 
 Confirm RBAC roles assigned (Check access): <br/>
-<img src="docs/images/sprint1-08-check-access.png" height="80%" width="80%" alt="Check access RBAC roles"/>
+<img src="docs/images/rbac.png" height="80%" width="80%" alt="Check access RBAC roles"/>
 
 </p>
 

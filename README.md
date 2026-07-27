@@ -69,7 +69,7 @@ Deploy the foundational logging backbone for the SIEM: a centralized Log Analyti
 <p align="center">
 
 Search for and create the Log Analytics Workspace: <br/>
-<img src="docs/images/sprint1-01-search-log-analytics.png" height="80%" width="80%" alt="Search Log Analytics workspaces"/>
+<img src="docs/images/3.png" height="80%" width="80%" alt="Search Log Analytics workspaces"/>
 <br />
 <br />
 

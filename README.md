@@ -179,12 +179,12 @@ Connect the SIEM's core data sources: Microsoft Entra ID identity logs, Azure Ac
 <p align="center">
 
 Microsoft Entra ID connector — connected status and ingestion graph: <br/>
-<img src="docs/images/entra-connector.png" height="80%" width="80%" alt="Microsoft Entra ID connector connected"/>
+<img src="docs/images/cap1.png" height="80%" width="80%" alt="Microsoft Entra ID connector connected"/>
 <br />
 <br />
 
 AzureActivity events flowing (deletions, creations, modifications): <br/>
-<img src="docs/images/azureactivity-logs.png" height="80%" width="80%" alt="AzureActivity query results"/>
+<img src="docs/images/azureacticuty logs.png" height="80%" width="80%" alt="AzureActivity query results"/>
 <br />
 <br />
 
@@ -194,22 +194,22 @@ AuditLogs visible in KQL: <br/>
 <br />
 
 SigninLogs visible in KQL: <br/>
-<img src="docs/images/signinlogs.png" height="80%" width="80%" alt="SigninLogs query results"/>
+<img src="docs/images/sign.png" height="80%" width="80%" alt="SigninLogs query results"/>
 <br />
 <br />
 
 Ingestion delay confirmed under 2 minutes (7-day sample): <br/>
-<img src="docs/images/ingestion-delay.png" height="80%" width="80%" alt="Ingestion delay KQL query"/>
+<img src="docs/images/15mi.png" height="80%" width="80%" alt="Ingestion delay KQL query"/>
 <br />
 <br />
 
-Diagnostic setting configured at subscription level: <br/>
-<img src="docs/images/diagnostic-settings.png" height="80%" width="80%" alt="Diagnostic settings Activity log"/>
-<br />
+
 <br />
 
 Data Collection Rule (DCR) configuration: <br/>
-<img src="docs/images/dcr.png" height="80%" width="80%" alt="Data Collection Rule"/>
+<img src="docs/images/dcrwindowss.png" height="80%" width="80%" alt="Data Collection Rule"/>
+<img src="docs/images/dcrlinux.png" height="80%" width="80%" alt="Data Collection Rule"/>
+
 <br />
 <br />
 

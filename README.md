@@ -253,7 +253,7 @@ SecurityEvent Event ID 4624 ingested: <br/>
 | New CloudShell User | Low | Native | ⏳ Not yet tested (trivial) |
 
 **All 7 active rules (overview screenshot):**
-<img src="docs/images/sprint3-active-rules-list.png" width="80%" alt="All 7 active Sentinel rules by severity"/>
+<img src="docs/images/rules.png" width="80%" alt="All 7 active Sentinel rules by severity"/>
 
 ---
 
@@ -291,15 +291,8 @@ This is the classic privilege-escalation attack pattern: an attacker compromises
 - First/last activity: 11:50:00 — Generated: 12:09:19 (≈19 min detection latency)
 
 **Incident detail screenshot:**
-<img src="docs/images/sprint3-incident495-privileged-role.png" width="80%" alt="Incident 495 - Privileged role User Administrator assigned"/>
+<img src="docs/images/inci1.png" width="80%" alt="Incident 495 - Privileged role User Administrator assigned"/>
 
-### ⚠️ Cleanup required
-**The DET04 role assignment must be removed after testing** — as of the last screenshot, it was still showing as assigned. Go to Entra ID → Roles and administrators → User Administrator → Assignments → select DET04 → Remove assignments. Confirm the list shows "No role assignments found" before considering this rule's test fully closed out.
-
-**Assignments page (cleanup verification):**
-<img src="docs/images/sprint3-det04-assignments.png" width="80%" alt="User Administrator assignments showing DET04"/>
-<br />
-*Note: this screenshot shows DET04 still present — confirm removal completed and re-capture showing an empty list before finalizing documentation.*
 
 ---
 

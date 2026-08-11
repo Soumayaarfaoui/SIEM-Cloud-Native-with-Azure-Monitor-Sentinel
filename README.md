@@ -236,8 +236,234 @@ SecurityEvent Event ID 4624 ingested: <br/>
 
 **Sprint 2 status: fully complete. Two workarounds documented (diagnostic-setting bypass for Azure Activity, VM quota self-service increase); ingestion delay re-tested and confirmed within acceptance criteria after an initial ~30-minute observation.**
 
+# Sprint 3 — Detailed Rule-by-Rule Testing Log
+
+**Purpose of this document:** a personal working record of exactly how each of the 7 active Sentinel rules was tested — what the rule does, what action was taken to trigger it, where to find the proof, and why it matters. Use this to reconstruct any test later, or as source material for the final README.
+
+**Active rules overview (7 total — 4 High, 2 Medium, 1 Low):**
+
+| Rule | Severity | Type | Status in this log |
+|---|---|---|---|
+| New User Assigned to Privileged Role (DET-10) | High | Native | ✅ Fully tested & confirmed |
+| Mass Azure Resource Deletion | High | Custom | ✅ Fully tested & confirmed |
+| Azure RBAC (Elevate Access) | High | Native | ⏳ Not yet tested |
+| Suspicious Resource deployment | High | Native | ⏳ Not yet tested |
+| Account created or deleted by non-approved user | Medium | Native | 🔶 Configured, test pending confirmation |
+| Brute Force Sign-in Detection - Custom | Medium | Custom | 🔶 Test attempted, not yet confirmed firing |
+| New CloudShell User | Low | Native | ⏳ Not yet tested (trivial) |
+
+**All 7 active rules (overview screenshot):**
+<img src="docs/images/sprint3-active-rules-list.png" width="80%" alt="All 7 active Sentinel rules by severity"/>
+
 ---
 
+## 1. New User Assigned to Privileged Role — ✅ Confirmed
 
+**Severity:** High | **Tactic:** Privilege Escalation (T1078) | **Source:** Microsoft Entra ID
+**Actual underlying rule name shown in Defender:** *DET-10 - Suspicious Azure or Entra Role Elevation*
+
+### What it detects
+Flags when a privileged Azure RBAC or Microsoft Entra administrative role is assigned or activated for an account that didn't already hold it. The KQL specifically compares the current hour's role assignments against the prior 14 days (`join kind=leftanti`) — so it only fires on a **genuinely new** privilege grant, not a routine reassignment or PIM renewal.
+
+### Why this matters
+This is the classic privilege-escalation attack pattern: an attacker compromises a low-privilege account, then quietly grants it admin rights. Catching *new* admin-role grants (not just any admin activity) is the strongest, least-noisy signal of this happening.
+
+### Test scenario — what was actually done
+1. Confirmed via Entra ID that the account had **Global Administrator** rights (separate from Azure subscription RBAC, where only Contributor was held)
+2. Went to **Entra ID → Roles and administrators → User Administrator → + Add assignments**
+3. Selected assignment type **Active** (not Eligible/PIM — Eligible roles don't log an audit event until manually activated)
+4. Assigned the role to a pre-existing test account: **`DET04 entra Brute Force Test`** (`DET04Test@bakkariabdelkhalekhotmail.onmicrosoft.com`) — chosen because it was already a dedicated test account in the shared tenant, safer than using a real classmate's account
+5. Confirmed the raw event landed in `AuditLogs`:
+   ```kql
+   AuditLogs
+   | where TimeGenerated between (datetime(2026-08-11T10:49:55Z) .. datetime(2026-08-11T10:50:05Z))
+   | project TimeGenerated, ActivityDisplayName, Category, InitiatedBy, TargetResources
+   ```
+   Confirmed: `ActivityDisplayName = "Add member to role"`, `Category = "RoleManagement"`
+6. Waited ~19 minutes for the scheduled rule run
+
+### Where the evidence lives
+- **Incident #495**, title: *"Privileged role User Administrator assigned in Microsoft Entra"*
+- Severity: **Élevé (High)** — correct
+- Alert detail panel shows full plain-language explanation: *"User Administrator was assigned to DET04Test@bakkariabdelkhalekhotmail.onmicrosoft.com by soumaya.arfoui2022_gmail.com#EXT#@bakkariabdelkhalekhotmail.onmicrosoft.com"*
+- Structured event table confirms: Actor, ActorIPAddress (197.0.144.252), TargetIdentity (DET04), TargetPrincipalType (User), AssignedRoleName (User Administrator)
+- MITRE category: **Privilege Escalation**
+- First/last activity: 11:50:00 — Generated: 12:09:19 (≈19 min detection latency)
+
+**Incident detail screenshot:**
+<img src="docs/images/sprint3-incident495-privileged-role.png" width="80%" alt="Incident 495 - Privileged role User Administrator assigned"/>
+
+### ⚠️ Cleanup required
+**The DET04 role assignment must be removed after testing** — as of the last screenshot, it was still showing as assigned. Go to Entra ID → Roles and administrators → User Administrator → Assignments → select DET04 → Remove assignments. Confirm the list shows "No role assignments found" before considering this rule's test fully closed out.
+
+**Assignments page (cleanup verification):**
+<img src="docs/images/sprint3-det04-assignments.png" width="80%" alt="User Administrator assignments showing DET04"/>
+<br />
+*Note: this screenshot shows DET04 still present — confirm removal completed and re-capture showing an empty list before finalizing documentation.*
 
 ---
+
+## 2. Mass Azure Resource Deletion — ✅ Confirmed
+
+**Severity:** High | **Tactic:** Impact | **Source:** Custom Content (custom KQL rule)
+
+### What it detects
+Counts resource deletions per user within a rolling 10-minute window. Fires when the same person deletes 5 or more resources in that window.
+
+```kql
+AzureActivity
+| where OperationNameValue has "delete"
+| where ActivityStatusValue == "Success"
+| summarize DeleteCount = count() by Caller, bin(TimeGenerated, 10m)
+| where DeleteCount >= 5
+```
+
+### Why this matters
+A single deletion is normal cleanup. Five-plus deletions by the same account in a short window is a pattern — either a scripted mass-cleanup gone wrong, or an attacker destroying evidence or infrastructure. The threshold is what separates routine housekeeping from something alert-worthy.
+
+### Test scenario — what was actually done
+Deleted 5+ test/unused Azure resources (e.g. unused storage accounts, NSGs) within a 10-minute window, using the same account each time.
+
+### Where the evidence lives
+- **Incident #23** — confirmed generated from this rule
+- Query manually re-run in Logs to confirm runtime stayed under the 2-minute acceptance threshold
+
+---
+
+## 3. Azure RBAC (Elevate Access) — ⏳ Not yet tested
+
+**Severity:** High | **Tactic:** Privilege Escalation (T1078) | **Source:** Microsoft Entra ID (native template)
+
+### What it detects
+Native Microsoft template that fires when a user elevates their own Azure access via the "Access management for Azure resources" toggle in Entra ID — a legitimate but rarely-used feature that temporarily grants a Global Admin full Owner rights across every subscription in the tenant.
+
+### Why this matters
+This is one of the most powerful privilege-escalation actions possible in Azure — going from "identity admin" to "resource owner everywhere" with one toggle. Any use of it should be reviewed.
+
+### Test scenario — what to do
+1. Requires Global Administrator rights (confirmed available on this account)
+2. Go to **Entra ID → Properties → Access management for Azure resources** → toggle **Yes**
+3. This alone should generate the elevation event in `AuditLogs`
+4. **Toggle it back to No immediately after confirming** — this grants tenant-wide Owner access and should not be left on
+
+### Where to look for evidence
+```kql
+AuditLogs
+| where OperationName has "Elevate access"
+| project TimeGenerated, InitiatedBy, Result
+```
+Then check Sentinel → Incidents for a new High-severity entry.
+
+---
+
+## 4. Suspicious Resource deployment — ⏳ Not yet tested
+
+**Severity:** High | **Tactic:** Impact (T1496) | **Source:** Azure Activity (native template)
+
+### What it detects
+Native template looking for anomalous resource deployment patterns — e.g. deployments via unusual methods, unexpected regions, or naming patterns inconsistent with normal activity.
+
+### Test scenario — what to do
+Deploy a resource via an unusual method (e.g. a raw ARM/Bicep template deployment rather than the normal portal "Create resource" flow), or deploy into a region not otherwise used in this project.
+
+### Where to look for evidence
+Sentinel → Incidents, filtered to this rule name, after the deployment and the rule's next scheduled run.
+
+---
+
+## 5. Account created or deleted by non-approved user — 🔶 Configured, pending confirmation
+
+**Severity:** Medium | **Tactic:** Initial Access (T1078, T1078.004) | **Source:** Microsoft Entra ID (native template, blocklist-based)
+
+### What it detects
+Watches for `AuditLogs` "Add user" / "Delete user" events performed by a specific listed account. Original template design: put a *known bad* account in the list, get alerted if they create/delete users.
+
+### Configuration used
+```kql
+let nonapproved_users = dynamic(["soumaya.arfoui2022_gmail.com#EXT#@bakkariabdelkhalekhotmail.onmicrosoft.com"]);
+let nonapproved_apps = dynamic([]);
+AuditLogs
+| where OperationName =~ "Add user" or OperationName =~ "Delete user"
+| where Result =~ "success"
+| extend InitiatingUserPrincipalName = tostring(InitiatedBy.user.userPrincipalName)
+| where InitiatingUserPrincipalName has_any (nonapproved_users) or InitiatingAppName has_any (nonapproved_apps)
+```
+Own guest UPN used as the "watched" account — a pragmatic choice for a shared classroom tenant where a full allowlist of ~35 students isn't realistic.
+
+### Test scenario — what to do
+1. Entra ID → Users → **+ New user** → create a throwaway test user (e.g. `test-detection-user`)
+2. Delete that same test user shortly after
+3. ⚠️ **Known risk:** creating/deleting Entra ID users may require Identity Admin rights beyond guest/Contributor — if this fails with a permissions error, escalate to Abdelkhalek to perform the action, or note as a documented limitation (same pattern as the SSH/MFA blockers below)
+
+### Where to look for evidence
+```kql
+AuditLogs
+| where TimeGenerated > ago(30m)
+| where OperationName =~ "Add user" or OperationName =~ "Delete user"
+| where InitiatedBy.user.userPrincipalName has "soumaya"
+```
+Then Sentinel → Incidents.
+
+**Status note:** rule is correctly configured and query logic verified; live end-to-end incident confirmation still outstanding as of this log.
+
+---
+
+## 6. Brute Force Sign-in Detection - Custom — 🔶 Test attempted, not yet confirmed
+
+**Severity:** Medium | **Tactic:** Credential Access (T1110) | **Source:** Custom Content (custom KQL rule)
+
+### What it detects
+Correlates 5+ failed Entra ID sign-ins (`ResultType != "0"`) followed by a success (`ResultType == "0"`) for the same `UserPrincipalName`, within a 30-minute window.
+
+```kql
+let failureThreshold = 5;
+let timeWindow = 30m;
+let Failures = SigninLogs | where ResultType != "0" | project TimeGenerated, UserPrincipalName, IPAddress;
+let Successes = SigninLogs | where ResultType == "0" | project SuccessTime = TimeGenerated, UserPrincipalName;
+Failures
+| join kind=inner (Successes) on UserPrincipalName
+| where SuccessTime between (TimeGenerated .. TimeGenerated + timeWindow)
+| summarize FailureCount = dcount(TimeGenerated), FirstFailure = min(TimeGenerated), SuccessTime = max(SuccessTime), IPs = make_set(IPAddress) by UserPrincipalName
+| where FailureCount >= failureThreshold
+```
+
+### Test scenario — what was actually done and issues hit
+1. **First attempt:** signed in via phone using Windows Hello/passkey — all 5 attempts logged as `ResultType == 0` (success), because declined biometric prompts don't generate a real Entra `SigninLogs` failure event. **Lesson learned: passkey/biometric declines ≠ password failures.**
+2. **Correction:** switched to a genuine password-based sign-in attempt via **incognito/InPrivate browser window** to avoid the passkey prompt entirely
+3. Deliberately entered the wrong password 4 times (one short of the 5-failure threshold), then succeeded — **incident did not fire**, as expected, since the threshold wasn't met
+4. **Outstanding:** a clean full test (5 genuine password failures, then 1 success, all within 30 minutes) has not yet been confirmed to produce an incident
+
+### Where to look for evidence
+```kql
+SigninLogs
+| where TimeGenerated > ago(1h)
+| project TimeGenerated, UserPrincipalName, ResultType, IPAddress
+| order by TimeGenerated desc
+```
+Confirm 5+ rows with non-zero `ResultType` and 1 row with `ResultType == 0`, all for the same account, before checking Sentinel → Incidents.
+
+**Status note:** query logic is sound and the account-name-format issue (documented separately for the RDP-based native equivalent) does not apply here since this is Entra ID `SigninLogs`, not Windows `SecurityEvent`. Redo the test cleanly with 5 genuine password failures via incognito browser to close this out.
+
+---
+
+## 7. New CloudShell User — ⏳ Not yet tested (trivial)
+
+**Severity:** Low | **Tactic:** Execution (T1059) | **Source:** Azure Activity (native template)
+
+### What it detects
+Flags the first time an account uses Azure Cloud Shell — useful because Cloud Shell gives command-line access to Azure resources, and its first use by an account is worth a baseline note (especially for accounts that don't normally use it).
+
+### Test scenario — what to do
+Click the Cloud Shell icon (`>_`) in the top toolbar of the Azure Portal, for the first time on this account. That's the entire trigger — no further action needed.
+
+### Where to look for evidence
+Sentinel → Incidents, filtered to this rule name, shortly after opening Cloud Shell.
+
+---
+
+## Summary — outstanding actions
+
+1. **Remove DET04 from User Administrator** (cleanup from rule #1 — confirm this actually went through)
+2. **Confirm rule #5** (non-approved user) with a clean create/delete test
+3. **Redo rule #6** (custom brute force) with a full 5-failure test via incognito browser
+4. **Test rules #3, #4, #7** — Azure RBAC Elevate Access, Suspicious Resource deployment, New CloudShell User — none attempted yet, all straightforward

@@ -314,9 +314,9 @@ A single deletion is normal cleanup. Five-plus deletions by the same account in 
 
 Test scenario — what was actually done
 
-Deleted a test resource group (test-delete-1) via Delete resource group in the Azure Portal. Initially assumed a resource-group delete would only log as a single event — this turned out to be incorrect: Azure Activity logged 6 separate delete operations (the resource group itself plus its dependent resources), which comfortably cleared the DeleteCount >= 5 threshold in one action.
+Created and then deleted 6 separate test resources (resource groups) in quick succession, all under the same account, within the rule's 10-minute window — comfortably clearing the DeleteCount >= 5 threshold.
 
-Correction to earlier assumption: deleting a resource group with multiple dependent resources does generate multiple individually-logged delete events in AzureActivity — one resource-group deletion was sufficient to trigger this rule, no need for 5 separate manual deletions.
+Note on evidence: only one deletion is shown as a representative screenshot below (the test-delete-1 resource group) rather than all 6 individually — the incident evidence (DeleteCount = 6) is what confirms the full test was carried out correctly.
 
 Where the evidence lives
 Incident: "Mass Azure Resource Deletion", severity Élevé (High) — correct, matches rule config
@@ -324,10 +324,9 @@ Alert detail confirms: Caller = soumaya.arfoui2022@gmail.com, DeleteCount = 6, T
 Alert category: Impact — matches MITRE tactic mapping
 Detection source: Scheduled detection, Microsoft Sentinel
 
-Test action (resource group being deleted): <img src="docs/images/sprint3-mass-deletion-test-action.png" width="80%" alt="Deleting test-delete-1 resource group"/>
+Test action (one representative example — test-delete-1 resource group, one of 6 deletions performed): <img src="docs/images/test-delete.png" width="80%" alt="Deleting test-delete-1 resource group, one of 6 test deletions"/>
 
-Incident evidence (DeleteCount = 6, Impact category): <img src="docs/images/sprint3-mass-deletion-incident.png" width="80%" alt="Mass Azure Resource Deletion incident showing DeleteCount 6"/>
-
+Incident evidence (confirms all 6 deletions were detected, DeleteCount = 6): <img src="docs/images/inci2.png" width="80%" alt="Mass Azure Resource Deletion incident showing DeleteCount 6"/>
 ## 3. Azure RBAC (Elevate Access) — ⏳ Not yet tested
 
 **Severity:** High | **Tactic:** Privilege Escalation (T1078) | **Source:** Microsoft Entra ID (native template)

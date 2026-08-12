@@ -294,34 +294,39 @@ This is the classic privilege-escalation attack pattern: an attacker compromises
 <img src="docs/images/inci1.png" width="80%" alt="Incident 495 - Privileged role User Administrator assigned"/>
 
 
----
+2. Mass Azure Resource Deletion — ✅ Confirmed
 
-## 2. Mass Azure Resource Deletion — ✅ Confirmed
+Severity: High | Tactic: Impact | Source: Custom Content (custom KQL rule)
 
-**Severity:** High | **Tactic:** Impact | **Source:** Custom Content (custom KQL rule)
+What it detects
 
-### What it detects
 Counts resource deletions per user within a rolling 10-minute window. Fires when the same person deletes 5 or more resources in that window.
 
-```kql
+kql
 AzureActivity
 | where OperationNameValue has "delete"
 | where ActivityStatusValue == "Success"
 | summarize DeleteCount = count() by Caller, bin(TimeGenerated, 10m)
 | where DeleteCount >= 5
-```
+Why this matters
 
-### Why this matters
 A single deletion is normal cleanup. Five-plus deletions by the same account in a short window is a pattern — either a scripted mass-cleanup gone wrong, or an attacker destroying evidence or infrastructure. The threshold is what separates routine housekeeping from something alert-worthy.
 
-### Test scenario — what was actually done
-Deleted 5+ test/unused Azure resources (e.g. unused storage accounts, NSGs) within a 10-minute window, using the same account each time.
+Test scenario — what was actually done
 
-### Where the evidence lives
-- **Incident #23** — confirmed generated from this rule
-- Query manually re-run in Logs to confirm runtime stayed under the 2-minute acceptance threshold
+Deleted a test resource group (test-delete-1) via Delete resource group in the Azure Portal. Initially assumed a resource-group delete would only log as a single event — this turned out to be incorrect: Azure Activity logged 6 separate delete operations (the resource group itself plus its dependent resources), which comfortably cleared the DeleteCount >= 5 threshold in one action.
 
----
+Correction to earlier assumption: deleting a resource group with multiple dependent resources does generate multiple individually-logged delete events in AzureActivity — one resource-group deletion was sufficient to trigger this rule, no need for 5 separate manual deletions.
+
+Where the evidence lives
+Incident: "Mass Azure Resource Deletion", severity Élevé (High) — correct, matches rule config
+Alert detail confirms: Caller = soumaya.arfoui2022@gmail.com, DeleteCount = 6, TimeGenerated = 31 juil. 2026 03:00:00
+Alert category: Impact — matches MITRE tactic mapping
+Detection source: Scheduled detection, Microsoft Sentinel
+
+Test action (resource group being deleted): <img src="docs/images/sprint3-mass-deletion-test-action.png" width="80%" alt="Deleting test-delete-1 resource group"/>
+
+Incident evidence (DeleteCount = 6, Impact category): <img src="docs/images/sprint3-mass-deletion-incident.png" width="80%" alt="Mass Azure Resource Deletion incident showing DeleteCount 6"/>
 
 ## 3. Azure RBAC (Elevate Access) — ⏳ Not yet tested
 

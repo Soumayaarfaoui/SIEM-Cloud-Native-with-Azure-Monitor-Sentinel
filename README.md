@@ -416,43 +416,31 @@ Then Sentinel → Incidents.
 
 ---
 
-## 6. Brute Force Sign-in Detection - Custom — 🔶 Test attempted, not yet confirmed
+Brute Force Sign-in Detection - Custom — ✅ Confirmed
 
-**Severity:** Medium | **Tactic:** Credential Access (T1110) | **Source:** Custom Content (custom KQL rule)
+Severity: Medium | Tactic: Credential Access | Source: Custom Content (custom KQL rule, Windows SecurityEvent)
 
-### What it detects
-Correlates 5+ failed Entra ID sign-ins (`ResultType != "0"`) followed by a success (`ResultType == "0"`) for the same `UserPrincipalName`, within a 30-minute window.
+What it detects
 
-```kql
-let failureThreshold = 5;
-let timeWindow = 30m;
-let Failures = SigninLogs | where ResultType != "0" | project TimeGenerated, UserPrincipalName, IPAddress;
-let Successes = SigninLogs | where ResultType == "0" | project SuccessTime = TimeGenerated, UserPrincipalName;
-Failures
-| join kind=inner (Successes) on UserPrincipalName
-| where SuccessTime between (TimeGenerated .. TimeGenerated + timeWindow)
-| summarize FailureCount = dcount(TimeGenerated), FirstFailure = min(TimeGenerated), SuccessTime = max(SuccessTime), IPs = make_set(IPAddress) by UserPrincipalName
-| where FailureCount >= failureThreshold
-```
+Detects multiple failed Windows login attempts followed by a successful login on the same host. Unlike the Entra ID sign-in brute-force pattern, this rule reads SecurityEvent (collected by AMA from vm-windows), watching specifically for Event ID 4625 (failed logon) and Event ID 4624 (successful logon) for the same account/computer/IP combination.
 
-### Test scenario — what was actually done and issues hit
-1. **First attempt:** signed in via phone using Windows Hello/passkey — all 5 attempts logged as `ResultType == 0` (success), because declined biometric prompts don't generate a real Entra `SigninLogs` failure event. **Lesson learned: passkey/biometric declines ≠ password failures.**
-2. **Correction:** switched to a genuine password-based sign-in attempt via **incognito/InPrivate browser window** to avoid the passkey prompt entirely
-3. Deliberately entered the wrong password 4 times (one short of the 5-failure threshold), then succeeded — **incident did not fire**, as expected, since the threshold wasn't met
-4. **Outstanding:** a clean full test (5 genuine password failures, then 1 success, all within 30 minutes) has not yet been confirmed to produce an incident
+kql
+SecurityEvent
+| where TimeGenerated >= ago(1h)
+| where EventID in (4624, 4625)
+| extend NormalizedAccount = tolower(tostring(split(Account, "\\")[1]))
+| summarize
+    FailedCount = countif(EventID == 4625),
+    SuccessCount = countif(EventID == 4624),
+    FirstFailedAttempt = minif(TimeGenerated, EventID == 4625),
+    LastSuccessAttempt = maxif(TimeGenerated, EventID == 4624)
+    by NormalizedAccount, Computer, IpAddress
+| where FailedCount >= 5 and SuccessCount > 0
+| where LastSuccessAttempt > FirstFailedAttempt
+Why this matters
 
-### Where to look for evidence
-```kql
-SigninLogs
-| where TimeGenerated > ago(1h)
-| project TimeGenerated, UserPrincipalName, ResultType, IPAddress
-| order by TimeGenerated desc
-```
-Confirm 5+ rows with non-zero `ResultType` and 1 row with `ResultType == 0`, all for the same account, before checking Sentinel → Incidents.
-
-**Status note:** query logic is sound and the account-name-format issue (documented separately for the RDP-based native equivalent) does not apply here since this is Entra ID `SigninLogs`, not Windows `SecurityEvent`. Redo the test cleanly with 5 genuine password failures via incognito browser to close this out.
-
----
+A failed login followed eventually by a success is normal (a typo, a forgotten password). But 5+ failures immediately followed by a success, for the same account on the same host, is the classic signature of either a successful brute-force attack or a legitimate user under active attack who happened to succeed after the attacker gave up.
+<img src="docs/images/bruteforce.png" width="80%" alt="Incident 781 - Brute Force Sign-in Detection Custom"/> <img src="docs/images/manual check.png" width="80%" alt="Manual verification of NormalizedAccount fix"/>
 
 ## 7. New CloudShell User — ⏳ Not yet tested (trivial)
 

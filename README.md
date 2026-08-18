@@ -442,24 +442,36 @@ Why this matters
 A failed login followed eventually by a success is normal (a typo, a forgotten password). But 5+ failures immediately followed by a success, for the same account on the same host, is the classic signature of either a successful brute-force attack or a legitimate user under active attack who happened to succeed after the attacker gave up.
 <img src="docs/images/bruteforce.png" width="80%" alt="Incident 781 - Brute Force Sign-in Detection Custom"/> <img src="docs/images/manual check.png" width="80%" alt="Manual verification of NormalizedAccount fix"/>
 
-## 7. New CloudShell User — ⏳ Not yet tested (trivial)
+7. SSH - Potential Brute Force — ✅ Confirmed
 
-**Severity:** Low | **Tactic:** Execution (T1059) | **Source:** Azure Activity (native template)
+Severity: Medium | Tactic: Credential Access (T1110) | Source: Syslog (native template)
 
-### What it detects
-Flags the first time an account uses Azure Cloud Shell — useful because Cloud Shell gives command-line access to Azure resources, and its first use by an account is worth a baseline note (especially for accounts that don't normally use it).
+What it detects: an IP with 15+ failed SSH attempts against invalid usernames, in a 4-hour block, grouped by IP + username.
 
-### Test scenario — what to do
-Click the Cloud Shell icon (`>_`) in the top toolbar of the Azure Portal, for the first time on this account. That's the entire trigger — no further action needed.
+kql
+let threshold = 15;
+Syslog
+| where ProcessName =~ "sshd"
+| where SyslogMessage contains "Failed password for invalid user"
+| parse kind=relaxed SyslogMessage with * "invalid user " user " from " ip " port" port " ssh2" *
+| distinct TimeGenerated, Computer, user, ip, port, SyslogMessage, _ResourceId
+| summarize PerHourCount = count() by bin(TimeGenerated,4h), ip, Computer, user
+| where PerHourCount > threshold
 
-### Where to look for evidence
-Sentinel → Incidents, filtered to this rule name, shortly after opening Cloud Shell.
+Blocker overcome: Linux VM uses SSH key-only auth by default. Root cause: an override in /etc/ssh/sshd_config.d/60-cloudimg-settings.conf re-disabling password auth. Fixed by patching that file and restarting ssh.
+
+🐛 Design limitation found: rule groups by user. Spreading attempts across many different fake usernames (once each) never crossed the threshold — a real attacker spraying usernames would evade this rule. Fix: repeated one username (fakeuser1) many times instead; confirmed PerHourCount = 23.
+
+Test: ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password fakeuser1@<linux-vm-ip>, repeated with wrong passwords.
+
+<img src="docs/images/sshteste.png" width="80%" alt="Repeated SSH password attempts against fakeuser1, confirming 15+ failures"/>
+
+Evidence: Incident ID 912, Severity Medium, Category Credential Access, MITRE T1110. IPAddress 102.158.27.73, UserList ["fakeuser1"], ComputerList ["vm-linux-smartovate"].
+
+<img src="docs/images/sshincident.png" width="80%" alt="Incident 912 - SSH Potential Brute Force confirmed"/>
+
+Cleanup: revert SSH config to key-only, deallocate the VM, close duplicate incidents #910/#911.
 
 ---
 
-## Summary — outstanding actions
 
-1. **Remove DET04 from User Administrator** (cleanup from rule #1 — confirm this actually went through)
-2. **Confirm rule #5** (non-approved user) with a clean create/delete test
-3. **Redo rule #6** (custom brute force) with a full 5-failure test via incognito browser
-4. **Test rules #3, #4, #7** — Azure RBAC Elevate Access, Suspicious Resource deployment, New CloudShell User — none attempted yet, all straightforward

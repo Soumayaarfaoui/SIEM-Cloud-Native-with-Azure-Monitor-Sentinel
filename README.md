@@ -412,7 +412,6 @@ AuditLogs
 Then Sentinel → Incident: <img src="docs/images/non-approveduser.png" width="80%"/>
 
 
-**Status note:** rule is correctly configured and query logic verified; live end-to-end incident confirmation still outstanding as of this log.
 
 
 ---

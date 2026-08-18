@@ -401,7 +401,6 @@ Own guest UPN used as the "watched" account — a pragmatic choice for a shared 
 ### Test scenario — what to do
 1. Entra ID → Users → **+ New user** → create a throwaway test user (e.g. `test-detection-user`)
 2. Delete that same test user shortly after
-3. ⚠️ **Known risk:** creating/deleting Entra ID users may require Identity Admin rights beyond guest/Contributor — if this fails with a permissions error, escalate to Abdelkhalek to perform the action, or note as a documented limitation (same pattern as the SSH/MFA blockers below)
 
 ### Where to look for evidence
 ```kql
@@ -410,9 +409,11 @@ AuditLogs
 | where OperationName =~ "Add user" or OperationName =~ "Delete user"
 | where InitiatedBy.user.userPrincipalName has "soumaya"
 ```
-Then Sentinel → Incidents.
+Then Sentinel → Incident: <img src="docs/images/non-approveduser.png" width="80%"/>
+
 
 **Status note:** rule is correctly configured and query logic verified; live end-to-end incident confirmation still outstanding as of this log.
+
 
 ---
 

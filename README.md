@@ -471,7 +471,90 @@ Evidence: Incident ID 912, Severity Medium, Category Credential Access, MITRE T1
 <img src="docs/images/sshincident.png" width="80%" alt="Incident 912 - SSH Potential Brute Force confirmed"/>
 
 Cleanup: revert SSH config to key-only, deallocate the VM, close duplicate incidents #910/#911.
-
+## Sprint 4 — Visualization and Reporting
+ 
+**Epic 4:** Visualization and Reporting
+**Status:** ✅ Complete
+ 
+### Description
+Sprints 1–3 built the pipeline (ingestion) and the detections (alerting). Sprint 4 adds the layer a security manager actually looks at day-to-day: a workbook that turns raw `SigninLogs` into trend lines and a map, so identity risk can be read at a glance instead of queried KQL-by-KQL. This is also the first artifact in the project reviewable by a non-analyst stakeholder.
+ 
+### US 4.1 — Creation of an Identity Monitoring Workbook
+ 
+*As a security manager, I want to have an interactive dashboard, in order to visualize authentication trends and identity-related anomalies.*
+**Priority:** Medium
+**Status:** ✅ Complete
+ 
+| Acceptance criteria | Status | Evidence |
+|---|---|---|
+| The workbook displays the number of successful vs. failed sign-ins per day | ✅ Done | Time chart over `SigninLogs`, bucketed by day, split into `Success` / `Failure` series |
+| A geographic map shows the origin of sign-ins | ✅ Done | Map visualization using `LocationDetails` (city/country/lat-long) from `SigninLogs`, marker size driven by sign-in volume |
+| Data refreshes automatically | ✅ Done | Workbook auto-refresh set to 15 minutes, combined with a relative time-range parameter (Last 24h / 7d) |
+ 
+#### Why this matters
+Sprint 3's rules are good at telling you *something specific and bad just happened* (a new admin grant, a brute-force success). What they don't give a security manager is the everyday baseline: is failed-sign-in volume trending up this week, is there a spike in sign-ins from a country nobody on the team is in, is one identity generating a disproportionate share of failures. A workbook answers "is something drifting" — a category of question the scheduled rules aren't built to answer, since they fire on discrete thresholds rather than surfacing trend shape.
+ 
+#### Implementation
+ 
+**1. Successful vs. failed sign-ins per day**
+```kql
+SigninLogs
+| summarize
+    Success = countif(ResultType == "0"),
+    Failure = countif(ResultType != "0")
+    by bin(TimeGenerated, 1d)
+| render timechart
+```
+Rendered in the workbook as a **time chart** with `Success` and `Failure` as separate series, driven by a workbook time-range parameter rather than a hardcoded window — so the manager can flip between "today," "last 7 days," "last 30 days" without editing the query.
+ 
+**2. Geographic origin of sign-ins**
+```kql
+SigninLogs
+| where isnotempty(LocationDetails)
+| extend City = tostring(LocationDetails.city),
+         Country = tostring(LocationDetails.countryOrRegion),
+         Lat = todouble(LocationDetails.geoCoordinates.latitude),
+         Long = todouble(LocationDetails.geoCoordinates.longitude)
+| summarize SignInCount = count() by City, Country, Lat, Long
+```
+Rendered as the workbook's built-in **Map** visualization, with `Lat`/`Long` as the location fields and `SignInCount` driving marker size — gives an immediate visual of whether sign-in origins match expected geography.
+ 
+**3. Auto-refresh**
+Workbook-level setting (gear icon → Auto refresh) set to a 15-minute interval, combined with a relative (not absolute) time-range parameter so the whole workbook — chart and map — advances automatically without manual reload.
+ 
+#### Design notes
+- `LocationDetails` coverage in `SigninLogs` was checked for nulls before building the map, to confirm enough rows carried coordinates to make the visualization meaningful.
+- Failed sign-ins are kept as a single aggregate series for this iteration; breaking them down by `ResultType` reason code (bad password vs. MFA failure vs. conditional access block) is a natural extension for a future sprint.
+- The workbook's default time range is set to 7 days rather than the full 90-day retention window, to keep the default view fast and the query cost low; a longer range remains available via the time-range parameter.
+#### Program walk-through
+<p align="center">
+Workbook overview — layout and parameters: <br/>
+<img src="docs/images/workbook-overview.png" height="80%" width="80%" alt="Identity monitoring workbook overview"/>
+<br />
+<br />
+ 
+Successful vs. failed sign-ins per day (time chart): <br/>
+<img src="docs/images/workbook-signin-timechart.png" height="80%" width="80%" alt="Time chart of successful vs failed sign-ins per day"/>
+<br />
+<br />
+ 
+Geographic map of sign-in origins: <br/>
+<img src="docs/images/workbook-signin-map.png" height="80%" width="80%" alt="Map of sign-in origins by location"/>
+<br />
+<br />
+ 
+Auto-refresh and time-range parameter configuration: <br/>
+<img src="docs/images/workbook-autorefresh-config.png" height="80%" width="80%" alt="Workbook auto-refresh interval and relative time-range parameter"/>
+ 
+</p>
+### Sprint 4 Summary
+ 
+| User Story | Completion |
+|---|---|
+| US 4.1 — Identity monitoring workbook | ✅ 100% |
+ 
+**Sprint 4 status: fully complete. Identity monitoring workbook built and validated against all three acceptance criteria.**
+ 
 ---
 
 

@@ -245,7 +245,7 @@ SecurityEvent Event ID 4624 ingested: <br/>
 | SSH - Potential Brute Force | Medium | Native | ✅ Fully tested & confirmed |
 
 **All active rules (overview screenshot):**
-<img src="docs/images/rules.png" width="80%" alt="Active Sentinel rules by severity"/>
+<img src="docs/images/ru.png" width="80%" alt="Active Sentinel rules by severity"/>
 
 ---
 

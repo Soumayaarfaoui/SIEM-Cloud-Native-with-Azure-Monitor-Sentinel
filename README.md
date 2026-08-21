@@ -535,17 +535,17 @@ Workbook overview — layout and parameters: <br/>
 <br />
 
 Successful vs. failed sign-ins per day (time chart): <br/>
-<img src="docs/images/workbook-signin-timechart.png" height="80%" width="80%" alt="Time chart of successful vs failed sign-ins per day"/>
+<img src="docs/images/si2.png" height="80%" width="80%" alt="Time chart of successful vs failed sign-ins per day"/>
 <br />
 <br />
 
 Geographic map of sign-in origins: <br/>
-<img src="docs/images/workbook-signin-map.png" height="80%" width="80%" alt="Map of sign-in origins by location"/>
+<img src="docs/images/map.png" height="80%" width="80%" alt="Map of sign-in origins by location"/>
 <br />
 <br />
 
 Auto-refresh and time-range parameter configuration: <br/>
-<img src="docs/images/workbook-autorefresh-config.png" height="80%" width="80%" alt="Workbook auto-refresh interval and relative time-range parameter"/>
+<img src="docs/images/autoref.png" height="80%" width="80%" alt="Workbook auto-refresh interval and relative time-range parameter"/>
 
 </p>
 

@@ -24,7 +24,7 @@ Internship project (Smartovate Ltd) to deploy a cloud-native SIEM on Microsoft A
 | [Sprint 1](#sprint-1--base-infrastructure) | Epic 1 — Base Infrastructure | Log Analytics Workspace + Sentinel activation | ✅ Complete |
 | [Sprint 2](#sprint-2--data-source-integration) | Epic 2 — Data Source Integration | Entra ID logs, Azure Activity logs, AMA on VMs | ✅ Complete |
 | [Sprint 3](#sprint-3--threat-detection) | Epic 3 — Threat Detection and Alerting | Native detection rules, custom KQL rules | ✅ Complete |
-| Sprint 4 | Epic 4 — TBD | TBD | ⬜ Not started |
+| Sprint 4 | Epic 4 — Visualization and Reporting | Identity monitoring workbook | ✅ Complete |
 
 ---
 
@@ -61,7 +61,7 @@ Deploy the foundational logging backbone for the SIEM: a centralized Log Analyti
 <h3>Issue Encountered & Resolved</h3>
 **Problem:** Guest account (Gmail-based) could not be found via the standard "Select members" search when assigning Sentinel roles — an Entra ID guest-enumeration restriction.
 <br />
-**Resolution:** Subscription Owner (Abdelhalek Bakkari) assigned the roles directly, bypassing the search.
+**Resolution:** The subscription Owner assigned the roles directly, bypassing the search.
 <br />
 **Verification:** Confirmed via Access control (IAM) → Check access.
 
@@ -72,8 +72,6 @@ Search for and create the Log Analytics Workspace: <br/>
 <img src="docs/images/3.png" height="80%" width="80%" alt="Search Log Analytics workspaces"/>
 <br />
 <br />
-
-
 
 Confirm 90-day retention setting: <br/>
 <img src="docs/images/datarention.png" height="80%" width="80%" alt="Data retention 90 days"/>
@@ -90,10 +88,6 @@ Add Microsoft Sentinel to the workspace: <br/>
 <br />
 <br />
 <img src="docs/images/sentinel2.png" height="80%" width="80%" alt="Add Microsoft Sentinel"/>
-<br />
-<br />
-
-
 <br />
 <br />
 
@@ -203,13 +197,9 @@ Ingestion delay confirmed under 2 minutes (7-day sample): <br/>
 <br />
 <br />
 
-
-<br />
-
 Data Collection Rule (DCR) configuration: <br/>
 <img src="docs/images/dcrwindowss.png" height="80%" width="80%" alt="Data Collection Rule"/>
 <img src="docs/images/dcrlinux.png" height="80%" width="80%" alt="Data Collection Rule"/>
-
 <br />
 <br />
 
@@ -236,9 +226,11 @@ SecurityEvent Event ID 4624 ingested: <br/>
 
 **Sprint 2 status: fully complete. Two workarounds documented (diagnostic-setting bypass for Azure Activity, VM quota self-service increase); ingestion delay re-tested and confirmed within acceptance criteria after an initial ~30-minute observation.**
 
-# Sprint 3 — Detailed Rule-by-Rule Testing Log
+---
 
-**Purpose of this document:** a personal working record of exactly how each of the 7 active Sentinel rules was tested — what the rule does, what action was taken to trigger it, where to find the proof, and why it matters. Use this to reconstruct any test later, or as source material for the final README.
+<h2 id="sprint-3--threat-detection">Sprint 3 — Detailed Rule-by-Rule Testing Log</h2>
+
+**Purpose of this document:** a working record of exactly how each of the 7 active Sentinel rules was tested — what the rule does, what action was taken to trigger it, where to find the proof, and why it matters.
 
 **Active rules overview (7 total — 4 High, 2 Medium, 1 Low):**
 
@@ -246,33 +238,33 @@ SecurityEvent Event ID 4624 ingested: <br/>
 |---|---|---|---|
 | New User Assigned to Privileged Role (DET-10) | High | Native | ✅ Fully tested & confirmed |
 | Mass Azure Resource Deletion | High | Custom | ✅ Fully tested & confirmed |
-| Azure RBAC (Elevate Access) | High | Native | ⏳ Not yet tested |
-| Suspicious Resource deployment | High | Native | ⏳ Not yet tested |
-| Account created or deleted by non-approved user | Medium | Native | 🔶 Configured, test pending confirmation |
-| Brute Force Sign-in Detection - Custom | Medium | Custom | 🔶 Test attempted, not yet confirmed firing |
-| New CloudShell User | Low | Native | ⏳ Not yet tested (trivial) |
+| Azure RBAC (Elevate Access) | High | Native | ✅ Fully tested & confirmed |
+| Suspicious Resource deployment | High | Native | 🔶 In progress |
+| Account created or deleted by non-approved user | Medium | Native | ✅ Confirmed |
+| Brute Force Sign-in Detection - Custom | Medium | Custom | ✅ Fully tested & confirmed |
+| SSH - Potential Brute Force | Medium | Native | ✅ Fully tested & confirmed |
 
-**All 7 active rules (overview screenshot):**
-<img src="docs/images/rules.png" width="80%" alt="All 7 active Sentinel rules by severity"/>
+**All active rules (overview screenshot):**
+<img src="docs/images/rules.png" width="80%" alt="Active Sentinel rules by severity"/>
 
 ---
 
-## 1. New User Assigned to Privileged Role — ✅ Confirmed
+### 1. New User Assigned to Privileged Role — ✅ Confirmed
 
 **Severity:** High | **Tactic:** Privilege Escalation (T1078) | **Source:** Microsoft Entra ID
 **Actual underlying rule name shown in Defender:** *DET-10 - Suspicious Azure or Entra Role Elevation*
 
-### What it detects
+#### What it detects
 Flags when a privileged Azure RBAC or Microsoft Entra administrative role is assigned or activated for an account that didn't already hold it. The KQL specifically compares the current hour's role assignments against the prior 14 days (`join kind=leftanti`) — so it only fires on a **genuinely new** privilege grant, not a routine reassignment or PIM renewal.
 
-### Why this matters
+#### Why this matters
 This is the classic privilege-escalation attack pattern: an attacker compromises a low-privilege account, then quietly grants it admin rights. Catching *new* admin-role grants (not just any admin activity) is the strongest, least-noisy signal of this happening.
 
-### Test scenario — what was actually done
+#### Test scenario — what was actually done
 1. Confirmed via Entra ID that the account had **Global Administrator** rights (separate from Azure subscription RBAC, where only Contributor was held)
 2. Went to **Entra ID → Roles and administrators → User Administrator → + Add assignments**
 3. Selected assignment type **Active** (not Eligible/PIM — Eligible roles don't log an audit event until manually activated)
-4. Assigned the role to a pre-existing test account: **`DET04 entra Brute Force Test`** (`DET04Test@bakkariabdelkhalekhotmail.onmicrosoft.com`) — chosen because it was already a dedicated test account in the shared tenant, safer than using a real classmate's account
+4. Assigned the role to a pre-existing test account: `DET04Test@<TENANT-DOMAIN>` — chosen because it was already a dedicated test account in the shared tenant, safer than using a real classmate's account
 5. Confirmed the raw event landed in `AuditLogs`:
    ```kql
    AuditLogs
@@ -282,113 +274,122 @@ This is the classic privilege-escalation attack pattern: an attacker compromises
    Confirmed: `ActivityDisplayName = "Add member to role"`, `Category = "RoleManagement"`
 6. Waited ~19 minutes for the scheduled rule run
 
-### Where the evidence lives
+#### Where the evidence lives
 - **Incident #495**, title: *"Privileged role User Administrator assigned in Microsoft Entra"*
 - Severity: **Élevé (High)** — correct
-- Alert detail panel shows full plain-language explanation: *"User Administrator was assigned to DET04Test@bakkariabdelkhalekhotmail.onmicrosoft.com by soumaya.arfoui2022_gmail.com#EXT#@bakkariabdelkhalekhotmail.onmicrosoft.com"*
-- Structured event table confirms: Actor, ActorIPAddress (197.0.144.252), TargetIdentity (DET04), TargetPrincipalType (User), AssignedRoleName (User Administrator)
+- Alert detail panel shows full plain-language explanation: *"User Administrator was assigned to DET04Test@\<TENANT-DOMAIN\> by \<REDACTED-ACCOUNT\>"*
+- Structured event table confirms: Actor, ActorIPAddress (`<IP-REDACTED>`), TargetIdentity (DET04), TargetPrincipalType (User), AssignedRoleName (User Administrator)
 - MITRE category: **Privilege Escalation**
 - First/last activity: 11:50:00 — Generated: 12:09:19 (≈19 min detection latency)
 
 **Incident detail screenshot:**
 <img src="docs/images/inci1.png" width="80%" alt="Incident 495 - Privileged role User Administrator assigned"/>
 
+---
 
-2. Mass Azure Resource Deletion — ✅ Confirmed
+### 2. Mass Azure Resource Deletion — ✅ Confirmed
 
-Severity: High | Tactic: Impact | Source: Custom Content (custom KQL rule)
+**Severity:** High | **Tactic:** Impact | **Source:** Custom Content (custom KQL rule)
 
-What it detects
-
+#### What it detects
 Counts resource deletions per user within a rolling 10-minute window. Fires when the same person deletes 5 or more resources in that window.
 
-kql
+```kql
 AzureActivity
 | where OperationNameValue has "delete"
 | where ActivityStatusValue == "Success"
 | summarize DeleteCount = count() by Caller, bin(TimeGenerated, 10m)
 | where DeleteCount >= 5
-Why this matters
+```
 
+#### Why this matters
 A single deletion is normal cleanup. Five-plus deletions by the same account in a short window is a pattern — either a scripted mass-cleanup gone wrong, or an attacker destroying evidence or infrastructure. The threshold is what separates routine housekeeping from something alert-worthy.
 
-Test scenario — what was actually done
+#### Test scenario — what was actually done
+Created and then deleted 6 separate test resources (resource groups) in quick succession, all under the same account, within the rule's 10-minute window — comfortably clearing the `DeleteCount >= 5` threshold.
 
-Created and then deleted 6 separate test resources (resource groups) in quick succession, all under the same account, within the rule's 10-minute window — comfortably clearing the DeleteCount >= 5 threshold.
+Note on evidence: only one deletion is shown as a representative screenshot below (the `test-delete-1` resource group) rather than all 6 individually — the incident evidence (`DeleteCount = 6`) is what confirms the full test was carried out correctly.
 
-Note on evidence: only one deletion is shown as a representative screenshot below (the test-delete-1 resource group) rather than all 6 individually — the incident evidence (DeleteCount = 6) is what confirms the full test was carried out correctly.
+#### Where the evidence lives
+- Incident: "Mass Azure Resource Deletion", severity Élevé (High) — correct, matches rule config
+- Alert detail confirms: Caller = `<REDACTED-ACCOUNT>`, DeleteCount = 6, TimeGenerated = 31 juil. 2026 03:00:00
+- Alert category: Impact — matches MITRE tactic mapping
+- Detection source: Scheduled detection, Microsoft Sentinel
 
-Where the evidence lives
-Incident: "Mass Azure Resource Deletion", severity Élevé (High) — correct, matches rule config
-Alert detail confirms: Caller = soumaya.arfoui2022@gmail.com, DeleteCount = 6, TimeGenerated = 31 juil. 2026 03:00:00
-Alert category: Impact — matches MITRE tactic mapping
-Detection source: Scheduled detection, Microsoft Sentinel
+Test action (one representative example — `test-delete-1` resource group, one of 6 deletions performed):
+<img src="docs/images/test-delete.png" width="80%" alt="Deleting test-delete-1 resource group, one of 6 test deletions"/>
 
-Test action (one representative example — test-delete-1 resource group, one of 6 deletions performed): <img src="docs/images/test-delete.png" width="80%" alt="Deleting test-delete-1 resource group, one of 6 test deletions"/>
+Incident evidence (confirms all 6 deletions were detected, DeleteCount = 6):
+<img src="docs/images/inci2.png" width="80%" alt="Mass Azure Resource Deletion incident showing DeleteCount 6"/>
 
-Incident evidence (confirms all 6 deletions were detected, DeleteCount = 6): <img src="docs/images/inci2.png" width="80%" alt="Mass Azure Resource Deletion incident showing DeleteCount 6"/>
+---
 
-. Azure RBAC (Elevate Access) — ✅ Confirmed
+### 3. Azure RBAC (Elevate Access) — ✅ Confirmed
 
-Severity: High | Tactic: Privilege Escalation (T1078) | Source: Microsoft Entra ID (native template)
+**Severity:** High | **Tactic:** Privilege Escalation (T1078) | **Source:** Microsoft Entra ID (native template)
 
-What it detects
-
+#### What it detects
 Detects when a Global Administrator uses the "Access management for Azure resources" toggle to elevate their own access — this grants User Access Administrator at the tenant's root scope, meaning full access to every subscription and management group in the tenant. It's one of the most powerful privilege-escalation actions available in Azure, since it goes from "identity admin" to "resource owner everywhere" with a single toggle.
 
-kql
+```kql
 AuditLogs
 | where Category =~ "AzureRBACRoleManagementElevateAccess"
 | where ActivityDisplayName =~ "User has elevated their access to User Access Administrator for their Azure Resources"
 | extend Actor = tostring(InitiatedBy.user.userPrincipalName)
 | extend IPAddress = tostring(InitiatedBy.user.ipAddress)
 | project TimeGenerated, Actor, OperationName, IPAddress, Result, LoggedByService
-Why this matters
+```
 
+#### Why this matters
 This toggle is legitimate but rarely used — most Global Admins never need Azure resource access, since identity administration and resource administration are normally separate permission systems. Any use of it should be reviewed, since it's an easy way for a compromised admin account (or an insider) to gain sweeping resource-level control.
 
-Test scenario — what was actually done
-Went to Entra ID → Properties
-Found the "Access management for Azure resources" toggle, currently showing the account already has Global Administrator rights in this tenant
-Toggled it to Yes
-Portal immediately confirmed: "Soumaya Arfaoui (soumaya.arfoui2022@gmail.com) can manage access to all Azure subscriptions and management groups in this tenant" — with a visible warning banner: "You have 1 users with elevated access. Microsoft Security recommends deleting access for users who have unnecessary elevated access."
+#### Test scenario — what was actually done
+1. Went to **Entra ID → Properties**
+2. Found the "Access management for Azure resources" toggle, currently showing the account already has Global Administrator rights in this tenant
+3. Toggled it to **Yes**
+4. Portal immediately confirmed: *"\<Account Owner\> (\<REDACTED-ACCOUNT\>) can manage access to all Azure subscriptions and management groups in this tenant"* — with a visible warning banner: *"You have 1 users with elevated access. Microsoft Security recommends deleting access for users who have unnecessary elevated access."*
 
-Toggle enabled — evidence: <img src="docs/images/rbac.png" width="80%" alt="Access management for Azure resources toggled to Yes"/>
+Toggle enabled — evidence:
+<img src="docs/images/rbac.png" width="80%" alt="Access management for Azure resources toggled to Yes"/>
 
-Where the evidence lives
-Incident ID 31: "Azure RBAC (Elevate Access)", severity Élevé (High)
-First activity: 30 juil. 2026 22:56:07 — Last activity: 23:12:11 — Alert generated: 23:38:30
-Alert category: Réaffectation de privilèges (Privilege reassignment)
-MITRE technique: T1078
-Alert description (auto-generated by the template) confirms exact match to the rule's purpose: "Detects when a Global Administrator elevates access to all subscriptions and management groups in a tenant..."
-Entity graph shows the account (live.com#soumaya.arfoui2022) and source IP (197.0.215.40)
+#### Where the evidence lives
+- Incident ID 31: "Azure RBAC (Elevate Access)", severity Élevé (High)
+- First activity: 30 juil. 2026 22:56:07 — Last activity: 23:12:11 — Alert generated: 23:38:30
+- Alert category: Réaffectation de privilèges (Privilege reassignment)
+- MITRE technique: T1078
+- Alert description (auto-generated by the template) confirms exact match to the rule's purpose: *"Detects when a Global Administrator elevates access to all subscriptions and management groups in a tenant..."*
+- Entity graph shows the account (`<REDACTED-ACCOUNT>`) and source IP (`<IP-REDACTED>`)
 
-Incident evidence: <img src="docs/images/azure RBAC.png" width="80%" alt="Incident 31 - Azure RBAC Elevate Access confirmed"/>
-## 4. Suspicious Resource deployment — ⏳ Not yet tested
+Incident evidence:
+<img src="docs/images/azure RBAC.png" width="80%" alt="Incident 31 - Azure RBAC Elevate Access confirmed"/>
+
+---
+
+### 4. Suspicious Resource deployment — 🔶 In progress
 
 **Severity:** High | **Tactic:** Impact (T1496) | **Source:** Azure Activity (native template)
 
-### What it detects
+#### What it detects
 Native template looking for anomalous resource deployment patterns — e.g. deployments via unusual methods, unexpected regions, or naming patterns inconsistent with normal activity.
 
-### Test scenario — what to do
+#### Test scenario — what to do
 Deploy a resource via an unusual method (e.g. a raw ARM/Bicep template deployment rather than the normal portal "Create resource" flow), or deploy into a region not otherwise used in this project.
 
-### Where to look for evidence
+#### Where to look for evidence
 Sentinel → Incidents, filtered to this rule name, after the deployment and the rule's next scheduled run.
 
 ---
 
-## 5. Account created or deleted by non-approved user — 🔶 Configured, pending confirmation
+### 5. Account created or deleted by non-approved user — ✅ Confirmed
 
 **Severity:** Medium | **Tactic:** Initial Access (T1078, T1078.004) | **Source:** Microsoft Entra ID (native template, blocklist-based)
 
-### What it detects
+#### What it detects
 Watches for `AuditLogs` "Add user" / "Delete user" events performed by a specific listed account. Original template design: put a *known bad* account in the list, get alerted if they create/delete users.
 
-### Configuration used
+#### Configuration used
 ```kql
-let nonapproved_users = dynamic(["soumaya.arfoui2022_gmail.com#EXT#@bakkariabdelkhalekhotmail.onmicrosoft.com"]);
+let nonapproved_users = dynamic(["<REDACTED-ACCOUNT>"]);
 let nonapproved_apps = dynamic([]);
 AuditLogs
 | where OperationName =~ "Add user" or OperationName =~ "Delete user"
@@ -398,33 +399,30 @@ AuditLogs
 ```
 Own guest UPN used as the "watched" account — a pragmatic choice for a shared classroom tenant where a full allowlist of ~35 students isn't realistic.
 
-### Test scenario — what to do
-1. Entra ID → Users → **+ New user** → create a throwaway test user (e.g. `test-detection-user`)
-2. Delete that same test user shortly after
+#### Test scenario — what was done
+1. Entra ID → Users → **+ New user** → created a throwaway test user (`test-detection-user`)
+2. Deleted that same test user shortly after
 
-### Where to look for evidence
+#### Where the evidence lives
 ```kql
 AuditLogs
 | where TimeGenerated > ago(30m)
 | where OperationName =~ "Add user" or OperationName =~ "Delete user"
-| where InitiatedBy.user.userPrincipalName has "soumaya"
+| where InitiatedBy.user.userPrincipalName has "<REDACTED-ACCOUNT-PREFIX>"
 ```
-Then Sentinel → Incident: <img src="docs/images/non-approveduser.png" width="80%"/>
-
-
-
+Then Sentinel → Incident:
+<img src="docs/images/non-approveduser.png" width="80%"/>
 
 ---
 
-Brute Force Sign-in Detection - Custom — ✅ Confirmed
+### 6. Brute Force Sign-in Detection - Custom — ✅ Confirmed
 
-Severity: Medium | Tactic: Credential Access | Source: Custom Content (custom KQL rule, Windows SecurityEvent)
+**Severity:** Medium | **Tactic:** Credential Access | **Source:** Custom Content (custom KQL rule, Windows SecurityEvent)
 
-What it detects
+#### What it detects
+Detects multiple failed Windows login attempts followed by a successful login on the same host. Unlike the Entra ID sign-in brute-force pattern, this rule reads `SecurityEvent` (collected by AMA from `vm-windows`), watching specifically for Event ID 4625 (failed logon) and Event ID 4624 (successful logon) for the same account/computer/IP combination.
 
-Detects multiple failed Windows login attempts followed by a successful login on the same host. Unlike the Entra ID sign-in brute-force pattern, this rule reads SecurityEvent (collected by AMA from vm-windows), watching specifically for Event ID 4625 (failed logon) and Event ID 4624 (successful logon) for the same account/computer/IP combination.
-
-kql
+```kql
 SecurityEvent
 | where TimeGenerated >= ago(1h)
 | where EventID in (4624, 4625)
@@ -437,18 +435,26 @@ SecurityEvent
     by NormalizedAccount, Computer, IpAddress
 | where FailedCount >= 5 and SuccessCount > 0
 | where LastSuccessAttempt > FirstFailedAttempt
-Why this matters
+```
 
+#### Why this matters
 A failed login followed eventually by a success is normal (a typo, a forgotten password). But 5+ failures immediately followed by a success, for the same account on the same host, is the classic signature of either a successful brute-force attack or a legitimate user under active attack who happened to succeed after the attacker gave up.
-<img src="docs/images/bruteforce.png" width="80%" alt="Incident 781 - Brute Force Sign-in Detection Custom"/> <img src="docs/images/manual check.png" width="80%" alt="Manual verification of NormalizedAccount fix"/>
 
-7. SSH - Potential Brute Force — ✅ Confirmed
+**Key finding:** the same identity was logged under different account name formats depending on auth method (e.g. `MicrosoftAccount\azureuser` for failures vs `vm-windows\azureuser` for successes), which silently broke the grouping logic until `NormalizedAccount` was introduced.
 
-Severity: Medium | Tactic: Credential Access (T1110) | Source: Syslog (native template)
+<img src="docs/images/bruteforce.png" width="80%" alt="Incident 781 - Brute Force Sign-in Detection Custom"/>
+<img src="docs/images/manual check.png" width="80%" alt="Manual verification of NormalizedAccount fix"/>
 
-What it detects: an IP with 15+ failed SSH attempts against invalid usernames, in a 4-hour block, grouped by IP + username.
+---
 
-kql
+### 7. SSH - Potential Brute Force — ✅ Confirmed
+
+**Severity:** Medium | **Tactic:** Credential Access (T1110) | **Source:** Syslog (native template)
+
+#### What it detects
+An IP with 15+ failed SSH attempts against invalid usernames, in a 4-hour block, grouped by IP + username.
+
+```kql
 let threshold = 15;
 Syslog
 | where ProcessName =~ "sshd"
@@ -457,21 +463,25 @@ Syslog
 | distinct TimeGenerated, Computer, user, ip, port, SyslogMessage, _ResourceId
 | summarize PerHourCount = count() by bin(TimeGenerated,4h), ip, Computer, user
 | where PerHourCount > threshold
+```
 
-Blocker overcome: Linux VM uses SSH key-only auth by default. Root cause: an override in /etc/ssh/sshd_config.d/60-cloudimg-settings.conf re-disabling password auth. Fixed by patching that file and restarting ssh.
+**Blocker overcome:** Linux VM uses SSH key-only auth by default. Root cause: an override in `/etc/ssh/sshd_config.d/60-cloudimg-settings.conf` re-disabling password auth. Fixed by patching that file and restarting `ssh`.
 
-🐛 Design limitation found: rule groups by user. Spreading attempts across many different fake usernames (once each) never crossed the threshold — a real attacker spraying usernames would evade this rule. Fix: repeated one username (fakeuser1) many times instead; confirmed PerHourCount = 23.
+🐛 **Design limitation found:** rule groups `by user`. Spreading attempts across many different fake usernames (once each) never crossed the threshold — a real attacker spraying usernames would evade this rule. Fix for testing: repeated one username (`fakeuser1`) many times instead; confirmed `PerHourCount = 23`.
 
-Test: ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password fakeuser1@<linux-vm-ip>, repeated with wrong passwords.
+**Test performed:** `ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password fakeuser1@<VM-IP-REDACTED>`, repeated with wrong passwords.
 
 <img src="docs/images/sshteste.png" width="80%" alt="Repeated SSH password attempts against fakeuser1, confirming 15+ failures"/>
 
-Evidence: Incident ID 912, Severity Medium, Category Credential Access, MITRE T1110. IPAddress 102.158.27.73, UserList ["fakeuser1"], ComputerList ["vm-linux-smartovate"].
+**Evidence:** Incident ID 912, Severity Medium, Category Credential Access, MITRE T1110. IPAddress `<IP-REDACTED>`, UserList `["fakeuser1"]`, ComputerList `["vm-linux-smartovate"]`.
 
 <img src="docs/images/sshincident.png" width="80%" alt="Incident 912 - SSH Potential Brute Force confirmed"/>
 
-Cleanup: revert SSH config to key-only, deallocate the VM, close duplicate incidents #910/#911.
-## Sprint 4 — Visualization and Reporting
+**Cleanup:** revert SSH config to key-only, deallocate the VM, close duplicate incidents #910/#911.
+
+---
+
+<h2 id="sprint-4--visualization-and-reporting">Sprint 4 — Visualization and Reporting</h2>
 
 **Epic 4:** Visualization and Reporting
 **Status:** ✅ Complete
@@ -487,9 +497,9 @@ Sprints 1–3 built the pipeline (ingestion) and the detections (alerting). Spri
 
 | Acceptance criteria | Status | Evidence |
 |---|---|---|
-| The workbook displays the number of successful vs. failed sign-ins per day | ✅ Done | Time chart over `SigninLogs`, bucketed by day, split into `Success` / `Failure` series |
-| A geographic map shows the origin of sign-ins | ✅ Done | Map visualization using `LocationDetails` (city/country/lat-long) from `SigninLogs`, marker size driven by sign-in volume |
-| Data refreshes automatically | ✅ Done | Workbook auto-refresh set to 15 minutes, combined with a relative time-range parameter (Last 24h / 7d) |
+| The workbook displays the number of successful vs. failed sign-ins per day | ✅ Done | Chart over `SigninLogs`, bucketed by day, split into `Success` / `Failure` series |
+| A geographic map shows the origin of sign-ins | ✅ Done | Map visualization using `LocationDetails` (country) from `SigninLogs`, marker size driven by sign-in volume |
+| Data refreshes automatically | ✅ Done | Workbook auto-refresh set to 10 minutes |
 
 #### Why this matters
 Sprint 3's rules are good at telling you *something specific and bad just happened* (a new admin grant, a brute-force success). What they don't give a security manager is the everyday baseline: is failed-sign-in volume trending up this week, is there a spike in sign-ins from a country nobody on the team is in, is one identity generating a disproportionate share of failures. A workbook answers "is something drifting" — a category of question the scheduled rules aren't built to answer, since they fire on discrete thresholds rather than surfacing trend shape.
@@ -503,49 +513,49 @@ SigninLogs
     Success = countif(ResultType == "0"),
     Failure = countif(ResultType != "0")
     by bin(TimeGenerated, 1d)
-| render timechart
+| render columnchart
 ```
-Rendered in the workbook as a **time chart** with `Success` and `Failure` as separate series, driven by a workbook time-range parameter rather than a hardcoded window — so the manager can flip between "today," "last 7 days," "last 30 days" without editing the query.
+Rendered in the workbook as a **column chart** with `Success` and `Failure` as separate series.
 
 **2. Geographic origin of sign-ins**
 ```kql
 SigninLogs
-| where isnotempty(LocationDetails)
-| extend City = tostring(LocationDetails.city),
-         Country = tostring(LocationDetails.countryOrRegion),
-         Lat = todouble(LocationDetails.geoCoordinates.latitude),
-         Long = todouble(LocationDetails.geoCoordinates.longitude)
-| summarize SignInCount = count() by City, Country, Lat, Long
+| where TimeGenerated > ago(30d)
+| extend CountryOrRegion = tostring(LocationDetails.countryOrRegion)
+| where isnotempty(CountryOrRegion)
+| summarize Connexions = count() by CountryOrRegion
 ```
-Rendered as the workbook's built-in **Map** visualization, with `Lat`/`Long` as the location fields and `SignInCount` driving marker size — gives an immediate visual of whether sign-in origins match expected geography.
+Rendered as the workbook's built-in **Map** visualization, with "Champ de pays/région" mapped to `CountryOrRegion`, sized by `Connexions` — gives an immediate visual of whether sign-in origins match expected geography.
 
 **3. Auto-refresh**
-Workbook-level setting (gear icon → Auto refresh) set to a 15-minute interval, combined with a relative (not absolute) time-range parameter so the whole workbook — chart and map — advances automatically without manual reload.
+Workbook-level setting (gear icon → Auto refresh) set to a 10-minute interval, so the whole workbook — chart and map — advances automatically without manual reload.
 
 #### Design notes
-- `LocationDetails` coverage in `SigninLogs` was checked for nulls before building the map, to confirm enough rows carried coordinates to make the visualization meaningful.
+- `LocationDetails` coverage in `SigninLogs` was checked for nulls before building the map, to confirm enough rows carried a country value to make the visualization meaningful.
 - Failed sign-ins are kept as a single aggregate series for this iteration; breaking them down by `ResultType` reason code (bad password vs. MFA failure vs. conditional access block) is a natural extension for a future sprint.
-- The workbook's default time range is set to 7 days rather than the full 90-day retention window, to keep the default view fast and the query cost low; a longer range remains available via the time-range parameter.
+
+#### Bug found & fixed — map "Country/Region" field
+Root cause: the visual picker UI let you select a Country/Region field but never persisted it — the underlying JSON `mapSettings` block was missing the `locInfoColumn` key. Fixed by editing the workbook's Advanced Editor directly and adding the key manually.
 
 #### Program walk-through
 <p align="center">
-Workbook overview — layout and parameters: <br/>
+Workbook overview and Success vs Failure chart with real data: <br/>
 <img src="docs/images/workbook-overview.png" height="80%" width="80%" alt="Identity monitoring workbook overview"/>
 <br />
 <br />
 
-Successful vs. failed sign-ins per day (time chart): <br/>
-<img src="docs/images/si2.png" height="80%" width="80%" alt="Time chart of successful vs failed sign-ins per day"/>
+Query editor behind the Success vs Failure panel: <br/>
+<img src="docs/images/si2.png" height="80%" width="80%" alt="Query editor for successful vs failed sign-ins per day"/>
 <br />
 <br />
 
-Geographic map of sign-in origins: <br/>
+Geographic map of sign-in origins with real data: <br/>
 <img src="docs/images/map.png" height="80%" width="80%" alt="Map of sign-in origins by location"/>
 <br />
 <br />
 
-Auto-refresh and time-range parameter configuration: <br/>
-<img src="docs/images/autoref.png" height="80%" width="80%" alt="Workbook auto-refresh interval and relative time-range parameter"/>
+Map query editor and field configuration: <br/>
+<img src="docs/images/autoref.png" height="80%" width="80%" alt="Map query editor and country/region field configuration"/>
 
 </p>
 
@@ -558,5 +568,3 @@ Auto-refresh and time-range parameter configuration: <br/>
 **Sprint 4 status: fully complete. Identity monitoring workbook built and validated against all three acceptance criteria.**
 
 ---
-
-

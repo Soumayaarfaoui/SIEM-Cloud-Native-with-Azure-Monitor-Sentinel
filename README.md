@@ -230,16 +230,15 @@ SecurityEvent Event ID 4624 ingested: <br/>
 
 <h2 id="sprint-3--threat-detection">Sprint 3 — Detailed Rule-by-Rule Testing Log</h2>
 
-**Purpose of this document:** a working record of exactly how each of the 7 active Sentinel rules was tested — what the rule does, what action was taken to trigger it, where to find the proof, and why it matters.
+**Purpose of this document:** a working record of exactly how each active Sentinel rule was tested — what the rule does, what action was taken to trigger it, where to find the proof, and why it matters.
 
-**Active rules overview (7 total — 4 High, 2 Medium, 1 Low):**
+**Active rules overview (6 total — 3 High, 3 Medium):**
 
 | Rule | Severity | Type | Status in this log |
 |---|---|---|---|
 | New User Assigned to Privileged Role (DET-10) | High | Native | ✅ Fully tested & confirmed |
 | Mass Azure Resource Deletion | High | Custom | ✅ Fully tested & confirmed |
 | Azure RBAC (Elevate Access) | High | Native | ✅ Fully tested & confirmed |
-| Suspicious Resource deployment | High | Native | 🔶 In progress |
 | Account created or deleted by non-approved user | Medium | Native | ✅ Confirmed |
 | Brute Force Sign-in Detection - Custom | Medium | Custom | ✅ Fully tested & confirmed |
 | SSH - Potential Brute Force | Medium | Native | ✅ Fully tested & confirmed |
@@ -365,22 +364,7 @@ Incident evidence:
 
 ---
 
-### 4. Suspicious Resource deployment — 🔶 In progress
-
-**Severity:** High | **Tactic:** Impact (T1496) | **Source:** Azure Activity (native template)
-
-#### What it detects
-Native template looking for anomalous resource deployment patterns — e.g. deployments via unusual methods, unexpected regions, or naming patterns inconsistent with normal activity.
-
-#### Test scenario — what to do
-Deploy a resource via an unusual method (e.g. a raw ARM/Bicep template deployment rather than the normal portal "Create resource" flow), or deploy into a region not otherwise used in this project.
-
-#### Where to look for evidence
-Sentinel → Incidents, filtered to this rule name, after the deployment and the rule's next scheduled run.
-
----
-
-### 5. Account created or deleted by non-approved user — ✅ Confirmed
+### 4. Account created or deleted by non-approved user — ✅ Confirmed
 
 **Severity:** Medium | **Tactic:** Initial Access (T1078, T1078.004) | **Source:** Microsoft Entra ID (native template, blocklist-based)
 
@@ -415,7 +399,7 @@ Then Sentinel → Incident:
 
 ---
 
-### 6. Brute Force Sign-in Detection - Custom — ✅ Confirmed
+### 5. Brute Force Sign-in Detection - Custom — ✅ Confirmed
 
 **Severity:** Medium | **Tactic:** Credential Access | **Source:** Custom Content (custom KQL rule, Windows SecurityEvent)
 
@@ -447,7 +431,7 @@ A failed login followed eventually by a success is normal (a typo, a forgotten p
 
 ---
 
-### 7. SSH - Potential Brute Force — ✅ Confirmed
+### 6. SSH - Potential Brute Force — ✅ Confirmed
 
 **Severity:** Medium | **Tactic:** Credential Access (T1110) | **Source:** Syslog (native template)
 

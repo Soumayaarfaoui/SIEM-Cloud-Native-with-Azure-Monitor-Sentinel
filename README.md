@@ -569,3 +569,14 @@ Map query editor and Country/Region field configuration: <br/>
 **Sprint 4 status: fully complete. Identity monitoring workbook built and validated against all three acceptance criteria.**
 
 ---
+
+<h2>Out of Scope / Future Work</h2>
+
+This project covers **detection and visibility**, not automated response. Sentinel rules generate incidents in the queue for manual analyst review — no automated response actions (e.g. Sentinel Playbooks via Logic Apps: auto-disabling a compromised account, auto-revoking an elevated role, auto-isolating a VM) were implemented in this iteration. Triage and remediation of any incident is a manual step outside the current scope.
+
+Other natural extensions not covered here:
+- Breaking down failed sign-ins by `ResultType` reason code (bad password vs. MFA failure vs. conditional access block) in the workbook
+- Extending detection coverage beyond the current 6 rules
+- Automated response playbooks for the higher-severity incidents (privilege escalation, mass deletion)
+
+---

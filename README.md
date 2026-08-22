@@ -228,9 +228,14 @@ SecurityEvent Event ID 4624 ingested: <br/>
 
 ---
 
-<h2 id="sprint-3--threat-detection">Sprint 3 — Detailed Rule-by-Rule Testing Log</h2>
+<h2 id="sprint-3--threat-detection">Sprint 3 — Threat Detection and Alerting</h2>
 
-**Purpose of this document:** a working record of exactly how each active Sentinel rule was tested — what the rule does, what action was taken to trigger it, where to find the proof, and why it matters.
+<b>Epic 3:</b> Threat Detection and Alerting
+<br />
+<b>Status:</b> ✅ Complete
+
+<h3>Description</h3>
+Build out native and custom Sentinel detection rules on top of the data sources connected in Sprint 2, and confirm each one fires correctly against real triggering activity. This document is a working record of exactly how each active rule was tested — what the rule does, what action was taken to trigger it, where to find the proof, and why it matters.
 
 **Active rules overview (6 total — 3 High, 3 Medium):**
 
@@ -462,6 +467,21 @@ Syslog
 <img src="docs/images/sshincident.png" width="80%" alt="Incident 912 - SSH Potential Brute Force confirmed"/>
 
 **Cleanup:** revert SSH config to key-only, deallocate the VM, close duplicate incidents #910/#911.
+
+---
+
+<h3>Sprint 3 Summary</h3>
+
+| Rule | Severity | Status |
+|---|---|---|
+| New User Assigned to Privileged Role (DET-10) | High | ✅ Confirmed |
+| Mass Azure Resource Deletion | High | ✅ Confirmed |
+| Azure RBAC (Elevate Access) | High | ✅ Confirmed |
+| Account created or deleted by non-approved user | Medium | ✅ Confirmed |
+| Brute Force Sign-in Detection - Custom | Medium | ✅ Confirmed |
+| SSH - Potential Brute Force | Medium | ✅ Confirmed |
+
+**Sprint 3 status: fully complete. 6/6 active rules tested and confirmed with real incident evidence; two design limitations documented (account-name normalization, username-spraying gap) and fixed or noted for future work.**
 
 ---
 
